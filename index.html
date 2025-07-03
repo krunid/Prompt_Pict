@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>เครื่องมือสร้างพรอมต์ตัวละคร</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- three.js for 3D egg -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Lucide Icons for copy button -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Custom font for Thai language */
+        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;700&display=swap');
+        body {
+            font-family: 'IBM Plex Sans Thai', sans-serif;
+        }
+        /* Ensure canvas is responsive and has a minimum height */
+        #egg-canvas {
+            width: 100%;
+            height: 100%;
+            min-height: 300px;
+            cursor: grab;
+        }
+        #egg-canvas:active {
+            cursor: grabbing;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white flex flex-col items-center justify-center min-h-screen p-4">
+
+    <div class="w-full max-w-4xl bg-gray-800 rounded-2xl shadow-2xl p-6 md:p-8 mx-auto">
+        <h1 class="text-3xl md:text-4xl font-bold text-center mb-6 text-indigo-400">เครื่องมือสร้างพรอมต์ตัวละคร</h1>
+        <p class="text-center text-gray-400 mb-8">เลือกคุณสมบัติต่างๆ เพื่อสร้างตัวละคร Chibi ในชุดไทย พร้อมอาวุธประจำกายที่พัฒนาตามวัย</p>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+            <!-- 3D Egg Canvas -->
+            <div id="canvas-container" class="bg-gray-900/50 rounded-lg p-4 border border-gray-700">
+                <canvas id="egg-canvas"></canvas>
+            </div>
+
+            <!-- Controls -->
+            <div class="space-y-6">
+                <div>
+                    <label for="color-select" class="block mb-2 text-sm font-medium text-gray-300">1. เลือกสีไข่ (พาสเทล)</label>
+                    <select id="color-select" class="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5">
+                        <option value="#FFB6C1">ชมพูอ่อน (Light Pink)</option>
+                        <option value="#ADD8E6">ฟ้าอ่อน (Light Blue)</option>
+                        <option value="#98FB98">เขียวมิ้นต์ (Pale Green)</option>
+                        <option value="#E6E6FA">ลาเวนเดอร์ (Lavender)</option>
+                        <option value="#FFDAB9">พีช (Peach Puff)</option>
+                        <option value="#FFFFE0">เหลืองอ่อน (Light Yellow)</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label for="animal-select" class="block mb-2 text-sm font-medium text-gray-300">2. เลือกประเภทสัตว์</label>
+                    <select id="animal-select" class="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5">
+                        <option value="แมว">แมว</option>
+                        <option value="สุนัข">สุนัข</option>
+                        <option value="สัตว์ในตำนาน">สัตว์ในตำนาน</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label for="breed-select" class="block mb-2 text-sm font-medium text-gray-300">3. เลือกสายพันธุ์</label>
+                    <select id="breed-select" class="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5">
+                        <!-- Options will be populated by JavaScript -->
+                    </select>
+                </div>
+
+                <button id="generate-btn" class="w-full text-white bg-indigo-600 hover:bg-indigo-700 focus:ring-4 focus:outline-none focus:ring-indigo-500 font-medium rounded-lg text-lg px-5 py-3 text-center transition-colors duration-300">
+                    สร้างพรอมต์
+                </button>
+            </div>
+        </div>
+
+        <!-- Result Display -->
+        <div id="result-container" class="mt-10 p-6 bg-gray-900/70 rounded-lg border border-gray-700 hidden">
+            <h2 class="text-2xl font-bold mb-4 text-green-400">ผลลัพธ์การสร้างตัวละคร</h2>
+            <div id="result-content" class="space-y-4 text-gray-200">
+                <!-- Content will be populated by JavaScript -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- Footer -->
+    <footer class="text-center text-gray-500 text-sm py-6">
+        © 2025 จัดทำโดย กฤตัชญ์ ศิษย์หลวงพ่อเสือ
+    </footer>
+
+
+    <script type="module">
+        // --- DATA FOR CHARACTER GENERATION ---
+        const breedOptions = {
+            'แมว': ['วิเชียรมาศ', 'แมวส้ม', 'ขาวมณี', 'สีสวาด'],
+            'สุนัข': ['โกลเด้นรีทรีฟเวอร์', 'ชิวาวา', 'บางแก้ว', 'ไทยหลังอาน'],
+            'สัตว์ในตำนาน': ['นาค', 'ครุฑ', 'กินรี', 'มอม']
+        };
+
+        const evolutionData = {
+            'วิเชียรมาศ': { lineage: 'นักฆ่าแห่งเงาจันทรา', weapons: ['กริชเงิน', 'มีดสั้นคู่', 'พระขรรค์จันทรา', 'ดาบยาวไร้เงา'] },
+            'แมวส้ม': { lineage: 'นักรบแห่งรุ่งอรุณ', weapons: ['หนังสติ๊ก', 'ธนูไม้', 'ธนูเพลิง', 'ธนูสุริยะ'] },
+            'ขาวมณี': { lineage: 'นักบวชแห่งแสงศักดิ์สิทธิ์', weapons: ['คทาไม้', 'คทาผลึก', 'คทาเพชร', 'คทาแห่งแสงบริสุทธิ์'] },
+            'สีสวาด': { lineage: 'จอมเวทย์แห่งสายฟ้า', weapons: ['ไม้กายสิทธิ์', 'คทาอัสนี', 'คทาวายุ', 'คทาเมฆาอัสนีบาต'] },
+            'โกลเด้นรีทรีฟเวอร์': { lineage: 'อัศวินผู้พิทักษ์', weapons: ['ดาบไม้', 'ดาบเหล็ก', 'โล่และดาบใหญ่', 'ดาบทองคำแห่งคำมั่นสัญญา'] },
+            'ชิวาวา': { lineage: 'ผู้ใช้มนตราตัวจิ๋ว', weapons: ['ลูกแก้วเวทย์', 'ตำราเวทย์โบราณ', 'คทาเวทย์ดวงดาว', 'คัมภีร์แห่งจักรวาล'] },
+            'บางแก้ว': { lineage: 'องครักษ์ผู้ซื่อสัตย์', weapons: ['หอกไม้', 'ทวนเหล็ก', 'ง้าว', 'หอกวชิระ'] },
+            'ไทยหลังอาน': { lineage: 'นักล่าแห่งพงไพร', weapons: ['ขวานหิน', 'ขวานเหล็ก', 'ขวานคู่', 'ขวานรบอาคม'] },
+            'นาค': { lineage: 'ผู้ควบคุมวารี', weapons: ['เกล็ดวารี', 'ตรีศูล', 'พญานาคจำแลง', 'ตรีศูลแห่งเจ้าสมุทร'] },
+            'ครุฑ': { lineage: 'เจ้าแห่งเวหา', weapons: ['กรงเล็บลม', 'ขนนกใบมีด', 'กรงเล็บวายุ', 'จักรแก้ว'] },
+            'กินรี': { lineage: 'นักระบำแห่งสรวงสวรรค์', weapons: ['ปีกทิพย์', 'พิณมนตรา', 'กริชร่ายรำ', 'เจ็ดอาวุธแห่งนางฟ้า'] },
+            'มอม': { lineage: 'อสูรผู้พิทักษ์วัด', weapons: ['เขี้ยวหิน', 'กรงเล็บเหล็ก', 'พลังปฐพี', 'เกราะเพชรเจ็ดสี'] }
+        };
+
+        // --- 3D EGG SETUP ---
+        const canvasContainer = document.getElementById('canvas-container');
+        const canvas = document.getElementById('egg-canvas');
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, canvasContainer.clientWidth / canvasContainer.clientHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
+        
+        renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        const geometry = new THREE.SphereGeometry(1.5, 32, 32);
+        geometry.scale(1, 1.2, 1);
+        const material = new THREE.MeshStandardMaterial({ color: 0xFFB6C1, metalness: 0.3, roughness: 0.4 });
+        const egg = new THREE.Mesh(geometry, material);
+        scene.add(egg);
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+        scene.add(ambientLight);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+        directionalLight.position.set(5, 10, 7.5);
+        scene.add(directionalLight);
+        camera.position.z = 4;
+        let isMouseDown = false;
+        let previousMousePosition = { x: 0, y: 0 };
+        canvas.addEventListener('mousedown', (e) => { isMouseDown = true; previousMousePosition = { x: e.clientX, y: e.clientY }; });
+        canvas.addEventListener('mouseup', () => { isMouseDown = false; });
+        canvas.addEventListener('mouseleave', () => { isMouseDown = false; });
+        canvas.addEventListener('mousemove', (e) => {
+            if (!isMouseDown) return;
+            const deltaX = e.clientX - previousMousePosition.x;
+            const deltaY = e.clientY - previousMousePosition.y;
+            egg.rotation.y += deltaX * 0.01;
+            egg.rotation.x += deltaY * 0.01;
+            previousMousePosition = { x: e.clientX, y: e.clientY };
+        });
+        canvas.addEventListener('touchstart', (e) => { isMouseDown = true; previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY }; }, { passive: true });
+        canvas.addEventListener('touchend', () => { isMouseDown = false; });
+        canvas.addEventListener('touchmove', (e) => {
+            if (!isMouseDown) return;
+            const deltaX = e.touches[0].clientX - previousMousePosition.x;
+            const deltaY = e.touches[0].clientY - previousMousePosition.y;
+            egg.rotation.y += deltaX * 0.01;
+            egg.rotation.x += deltaY * 0.01;
+            previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        }, { passive: true });
+        function animate() {
+            requestAnimationFrame(animate);
+            if (!isMouseDown) { egg.rotation.y += 0.005; }
+            renderer.render(scene, camera);
+        }
+        animate();
+        window.addEventListener('resize', () => {
+            camera.aspect = canvasContainer.clientWidth / canvasContainer.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight);
+        });
+
+        // --- UI LOGIC ---
+        const colorSelect = document.getElementById('color-select');
+        const animalSelect = document.getElementById('animal-select');
+        const breedSelect = document.getElementById('breed-select');
+        const generateBtn = document.getElementById('generate-btn');
+        const resultContainer = document.getElementById('result-container');
+        const resultContent = document.getElementById('result-content');
+
+        function updateBreeds() {
+            const selectedAnimal = animalSelect.value;
+            breedSelect.innerHTML = '';
+            breedOptions[selectedAnimal].forEach(breed => {
+                const option = document.createElement('option');
+                option.value = breed;
+                option.textContent = breed;
+                breedSelect.appendChild(option);
+            });
+        }
+
+        colorSelect.addEventListener('change', (e) => { material.color.set(e.target.value); });
+        animalSelect.addEventListener('change', updateBreeds);
+
+        generateBtn.addEventListener('click', () => {
+            const animal = animalSelect.value;
+            const breed = breedSelect.value;
+            if (!breed) { return; }
+
+            const selectedColorOption = colorSelect.options[colorSelect.selectedIndex].text;
+            const colorName = selectedColorOption.match(/\(([^)]+)\)/)[1]; // Extracts text in parentheses
+            const colorNameThai = selectedColorOption.split(' ')[0];
+
+            const data = evolutionData[breed];
+            const characterName = `${breed} ยอดนักสู้`;
+            const lineage = data.lineage;
+            const weapons = data.weapons;
+            
+            // --- ENGLISH PROMPT ---
+            const aiPromptTextEn = `Image series in 5 stages, masterpiece, best quality, ultra-detailed.
+1/5: A magical 3D egg, pastel ${colorName.toLowerCase()} color, glowing gently, on a transparent background.
+2/5: The egg hatches into a cute chibi kindergarten-age ${animal.toLowerCase()} (${breed}), wearing a simple traditional Thai outfit, holding a small "${weapons[0]}".
+3/5: The chibi ${animal.toLowerCase()} (${breed}) character as a teenager, wearing a more detailed traditional Thai costume, confidently holding a "${weapons[1]}".
+4/5: The chibi ${animal.toLowerCase()} (${breed}) character as a young adult, wearing an ornate and beautiful traditional Thai costume (Chut Thai), holding a powerful "${weapons[2]}".
+5/5: The chibi ${animal.toLowerCase()} (${breed}) character at its maximum evolution, epic and dynamic fighting pose, wearing a legendary and elaborate traditional Thai costume (Chut Thai Chakri), wielding the ultimate weapon, a legendary "${weapons[3]}", with a fantasy background and epic lighting.`;
+
+            // --- THAI PROMPT ---
+            const aiPromptTextTh = `ชุดภาพ 5 ลำดับขั้น, คุณภาพระดับมาสเตอร์พีซ, รายละเอียดคมชัดสูงสุด
+1/5: ไข่ 3 มิติ มหัศจรรย์, สี${colorNameThai}พาสเทล, มีแสงเรืองรอง, พื้นหลังโปร่งใส
+2/5: ไข่ฟักออกมาเป็นตัวละครจิบิ วัยอนุบาล, เป็น${animal}น่ารัก (พันธุ์${breed}), สวมชุดไทยประยุกต์แบบเรียบง่าย, ถือ"${weapons[0]}"ขนาดเล็ก
+3/5: ตัวละคร${animal}จิบิ (พันธุ์${breed}) เติบโตเป็นวัยรุ่น, สวมชุดไทยที่มีรายละเอียดมากขึ้น, ถือ"${weapons[1]}"อย่างมั่นใจ
+4/5: ตัวละคร${animal}จิบิ (พันธุ์${breed}) ในวัยผู้ใหญ่ตอนต้น, สวมชุดไทย (ชุดไทย) ที่สวยงามและหรูหรา, ถือ"${weapons[2]}"อันทรงพลัง
+5/5: ตัวละคร${animal}จิบิ (พันธุ์${breed}) ในร่างพัฒนาการสูงสุด, อยู่ในท่าต่อสู้ที่ทรงพลังและสง่างาม, สวมชุดไทยจักรีที่วิจิตรงดงามระดับตำนาน, ถืออาวุธสุดยอดในตำนานคือ"${weapons[3]}", ฉากหลังเป็นโลกแฟนตาซีพร้อมแสงสีสุดอลังการ`;
+
+            const promptHTML = `
+                <p class="font-semibold text-lg">ชื่อตัวละคร: <span class="font-bold text-xl text-yellow-400">${characterName}</span></p>
+                <p class="font-semibold text-lg">สายเลือด: <span class="font-normal text-cyan-400">${lineage}</span></p>
+                <div>
+                    <p class="font-semibold text-lg mb-2">พัฒนาการอาวุธ:</p>
+                    <ul class="list-disc list-inside space-y-1 text-gray-300 pl-4">
+                        <li><span class="font-bold text-purple-300">วัยอนุบาล:</span> ${weapons[0]}</li>
+                        <li><span class="font-bold text-purple-300">วัยรุ่น:</span> ${weapons[1]}</li>
+                        <li><span class="font-bold text-purple-300">วัยผู้ใหญ่:</span> ${weapons[2]}</li>
+                        <li><span class="font-bold text-green-300">วัยสูงสุด:</span> ${weapons[3]}</li>
+                    </ul>
+                </div>
+
+                <!-- English Prompt Section -->
+                <div class="mt-6 pt-4 border-t border-gray-600">
+                    <div class="flex justify-between items-center mb-2">
+                         <p class="font-bold text-lg text-green-400">พรอมต์สำหรับ AI (English):</p>
+                         <button data-target-id="ai-prompt-text-en" class="copy-btn bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg text-sm transition-colors flex items-center gap-2">
+                            <i data-lucide="copy" class="w-4 h-4"></i><span class="btn-text">Copy</span>
+                         </button>
+                    </div>
+                    <div class="p-3 bg-gray-900 rounded-md text-sm text-gray-200 font-mono whitespace-pre-wrap">
+                        <p id="ai-prompt-text-en">${aiPromptTextEn}</p>
+                    </div>
+                </div>
+
+                <!-- Thai Prompt Section -->
+                <div class="mt-6 pt-4 border-t border-gray-600">
+                    <div class="flex justify-between items-center mb-2">
+                         <p class="font-bold text-lg text-cyan-400">พรอมต์สำหรับ AI (ภาษาไทย):</p>
+                         <button data-target-id="ai-prompt-text-th" class="copy-btn bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-4 rounded-lg text-sm transition-colors flex items-center gap-2">
+                            <i data-lucide="copy" class="w-4 h-4"></i><span class="btn-text">คัดลอก</span>
+                         </button>
+                    </div>
+                    <div class="p-3 bg-gray-900 rounded-md text-sm text-gray-200 font-mono whitespace-pre-wrap">
+                        <p id="ai-prompt-text-th">${aiPromptTextTh}</p>
+                    </div>
+                </div>
+            `;
+
+            resultContent.innerHTML = promptHTML;
+            lucide.createIcons(); // Re-render icons after updating innerHTML
+            resultContainer.classList.remove('hidden');
+            resultContainer.scrollIntoView({ behavior: 'smooth' });
+        });
+
+        // Event listener for the copy buttons (using event delegation)
+        resultContainer.addEventListener('click', (e) => {
+            const button = e.target.closest('.copy-btn');
+            if (button) {
+                const targetId = button.dataset.targetId;
+                const promptText = document.getElementById(targetId).innerText;
+                const btnTextSpan = button.querySelector('.btn-text');
+                const originalText = btnTextSpan.innerText;
+                
+                const textArea = document.createElement('textarea');
+                textArea.value = promptText;
+                document.body.appendChild(textArea);
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                    btnTextSpan.innerText = 'คัดลอกแล้ว!';
+                    button.classList.add('bg-blue-600');
+                } catch (err) {
+                    console.error('ไม่สามารถคัดลอกได้', err);
+                    btnTextSpan.innerText = 'ผิดพลาด';
+                }
+                document.body.removeChild(textArea);
+
+                setTimeout(() => {
+                    btnTextSpan.innerText = originalText;
+                    button.classList.remove('bg-blue-600');
+                }, 2000);
+            }
+        });
+
+        // Initial population
+        updateBreeds();
+        material.color.set(colorSelect.value);
+        lucide.createIcons();
+    </script>
+</body>
+</html>
